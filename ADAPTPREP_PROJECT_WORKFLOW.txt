@@ -1,0 +1,1060 @@
+ADAPTPREP PROJECT WORKFLOW AND FUNCTIONALITY DETAILS
+====================================================
+
+Project Name:
+AdaptPrep
+
+Project Type:
+Full-stack MERN web application.
+
+Purpose:
+AdaptPrep is an intelligent adaptive exam preparation and consistency management platform for students preparing for Indian competitive and academic exams such as JEE, NEET, UPSC, GATE, SSC, CUET, CAT, and Board Exams.
+
+It is not only a timetable app. It works like a study operating system that helps students plan topic-wise preparation, track consistency, recover from missed study days, manage backlog gradually, revise using spaced repetition, and stay motivated.
+
+
+1. TECHNOLOGY STACK
+===================
+
+Frontend:
+- React.js with Vite
+- Tailwind CSS
+- React Router DOM
+- Axios
+- Zustand for authentication/session state
+- Framer Motion for animation
+- Recharts for analytics charts
+- Lucide React icons
+- LocalStorage for persistent session and theme preference
+
+Backend:
+- Node.js
+- Express.js
+- MongoDB Atlas or MongoDB connection through Mongoose
+- JWT authentication
+- bcryptjs password hashing
+- node-cron scheduled jobs
+- express-validator validation
+- dotenv environment variables
+- helmet, cors, rate limiting, and mongo sanitization for security
+
+Database:
+- MongoDB
+- Mongoose schemas/models
+
+Deployment Targets:
+- Frontend: Vercel
+- Backend: Render
+- Database: MongoDB Atlas
+
+
+2. PROJECT FOLDER STRUCTURE
+===========================
+
+Root:
+- package.json
+- README.md
+- .env.example
+- frontend/
+- backend/
+
+Frontend:
+frontend/src/
+- components/      Reusable UI components like cards, buttons, task cards, loading state, theme toggle
+- pages/           Auth and onboarding pages
+- layouts/         Main app layout with sidebar
+- dashboard/       Dashboard page and focus timer
+- analytics/       Analytics dashboard
+- roadmap/         Roadmap, schedule, and subjects pages
+- attendance/      Attendance page
+- settings/        Settings page
+- hooks/           Shared API hook
+- store/           Zustand auth store
+- services/        Axios API client
+- context/         Theme context
+- utils/           Utility helpers
+- styles/          Tailwind/global CSS
+- charts/          Recharts chart components
+- animations/      Shared animation config
+
+Backend:
+backend/
+- controllers/     Request handlers
+- routes/          API route definitions
+- middleware/      Auth, validation, error handling
+- models/          MongoDB schemas
+- services/        Business logic engines
+- validators/      Request validation
+- jobs/            Cron jobs
+- config/          Database connection
+- constants/       Exam syllabus database
+- utils/           Date helpers, async wrapper, API error helper
+- server.js        Main backend entry file
+
+
+3. APPLICATION STARTUP FLOW
+===========================
+
+Frontend startup:
+1. User runs frontend using Vite.
+2. React app starts from frontend/src/main.jsx.
+3. BrowserRouter wraps the app.
+4. App.jsx defines public and protected routes.
+5. ThemeProvider loads saved theme from localStorage or user preference.
+6. Auth store checks localStorage for saved token/user.
+7. If user is not logged in, protected pages redirect to /auth.
+8. If user is logged in but onboarding is not completed, user is redirected to /onboarding.
+9. If user is logged in and onboarding is completed, dashboard opens.
+
+Backend startup:
+1. server.js loads environment variables from backend/.env.
+2. Express app is created.
+3. Security middleware is registered:
+   - helmet
+   - cors
+   - express.json
+   - mongo sanitization
+   - rate limiting
+4. Health route is registered.
+5. API routes are mounted.
+6. Global not-found and error handlers are mounted.
+7. MongoDB connection is started using MONGO_URI.
+8. After database connection succeeds, Express starts listening on PORT.
+9. Cron schedulers start for attendance, recovery, revisions, and weak area refresh.
+
+
+4. AUTHENTICATION WORKFLOW
+==========================
+
+Main files:
+- frontend/src/pages/AuthPage.jsx
+- frontend/src/store/authStore.js
+- frontend/src/services/api.js
+- backend/routes/authRoutes.js
+- backend/controllers/authController.js
+- backend/models/User.js
+- backend/middleware/auth.js
+
+Register flow:
+1. User opens /auth.
+2. User switches to Register mode.
+3. User enters name, email, and password.
+4. Frontend sends POST /api/auth/register.
+5. Backend validates:
+   - name
+   - email
+   - password
+6. Backend checks if email already exists.
+7. Backend creates user in MongoDB.
+8. User password is hashed using bcrypt before saving.
+9. Backend creates JWT token.
+10. Backend returns token and public user profile.
+11. Frontend stores token in localStorage as adaptprep_token.
+12. Frontend stores user in localStorage as adaptprep_user.
+13. User is redirected to onboarding.
+
+Login flow:
+1. User enters email and password.
+2. Frontend sends POST /api/auth/login.
+3. Backend finds user by email and includes password field.
+4. Backend compares password using bcrypt.
+5. If password is correct, backend creates JWT token.
+6. Frontend stores token and user in localStorage.
+7. If onboarding is complete, user goes to dashboard.
+8. If onboarding is incomplete, user goes to onboarding.
+
+Protected route flow:
+1. Frontend checks auth store.
+2. Axios attaches JWT token to every request:
+   Authorization: Bearer token
+3. Backend protect middleware verifies token.
+4. If token is valid, req.user is attached.
+5. If token is invalid or missing, backend returns 401.
+6. Frontend removes stale token on 401.
+
+Logout flow:
+1. User clicks Logout.
+2. Frontend removes token and user from localStorage.
+3. User is redirected to /auth.
+
+
+5. USER MODEL
+=============
+
+Main file:
+- backend/models/User.js
+
+User fields:
+- name
+- email
+- password
+- examType
+- examName
+- examDate
+- dailyStudyHours
+- streakCount
+- longestStreak
+- attendancePercentage
+- recoveryMode
+- onboardingCompleted
+- preferredTheme
+- xp
+- level
+- badges
+- studyTiming
+- weakSubjects
+- subjectPriorities
+- topicDifficulties
+- lastAttendanceDateKey
+- createdAt
+- updatedAt
+
+Important behavior:
+- Password is never stored as plain text.
+- bcrypt hashes password before saving.
+- publicProfile method removes password before sending user data to frontend.
+
+
+6. THEME SYSTEM WORKFLOW
+========================
+
+Main files:
+- frontend/src/context/ThemeContext.jsx
+- frontend/src/components/ThemeToggle.jsx
+- frontend/src/styles/index.css
+- backend/controllers/settingsController.js
+
+Theme options:
+- light
+- dark
+- system
+
+How it works:
+1. ThemeProvider checks localStorage for adaptprep_theme.
+2. If no local theme exists, it uses user.preferredTheme.
+3. If theme is system, browser prefers-color-scheme is checked.
+4. The html element receives or removes the dark class.
+5. CSS variables change colors globally.
+6. When user changes theme, frontend:
+   - updates local state
+   - saves to localStorage
+   - sends PATCH /api/settings with preferredTheme
+7. Backend saves preferredTheme in user document.
+8. Next login restores the same theme.
+
+Dark theme:
+- warm charcoal background
+- sage accents
+- muted beige text
+- gentle contrast
+
+Light theme:
+- warm off-white background
+- cream cards
+- sage accents
+- soft shadows
+
+
+7. ONBOARDING WORKFLOW
+======================
+
+Main files:
+- frontend/src/pages/OnboardingPage.jsx
+- backend/routes/onboardingRoutes.js
+- backend/controllers/onboardingController.js
+- backend/constants/examSyllabus.js
+- backend/services/syllabusEngineService.js
+- backend/services/roadmapService.js
+
+Purpose:
+Onboarding collects exam information and generates a complete topic-wise roadmap automatically.
+
+Important rule:
+Users do not manually create subjects. Subjects and topics come from backend syllabus engine.
+
+Step 1: Exam goal
+User selects exam:
+- JEE
+- NEET
+- UPSC
+- GATE
+- SSC
+- CAT
+- CUET
+- BOARDS
+
+User also selects exam date.
+
+Frontend calls:
+GET /api/onboarding/syllabus?examName=EXAM_NAME
+
+Backend:
+1. Normalizes exam name.
+2. Looks up predefined syllabus in EXAM_DATABASE.
+3. Returns exam type, subjects, chapters, topics, and roadmap template.
+
+Example:
+If exam is JEE, backend returns:
+- Physics
+- Chemistry
+- Mathematics
+
+With chapters and topics such as:
+- Mechanics
+- Thermodynamics
+- Organic Chemistry
+- Calculus
+
+Step 2: Study hours
+User selects daily study hours using slider.
+This controls roadmap load and burnout prevention.
+
+Step 3: Subjects preview
+User sees auto-generated subjects.
+User can:
+- reorder subject priority
+- mark weak subjects
+
+User cannot manually create subjects.
+
+Step 4: Study timing
+User selects preferred timing:
+- Morning
+- Afternoon
+- Night
+- Flexible
+
+Step 5: Confirmation
+User sees estimated roadmap summary.
+User clicks Start AdaptPrep.
+
+Frontend sends:
+POST /api/onboarding/complete
+
+Backend:
+1. Saves exam details to user.
+2. Sets onboardingCompleted to true.
+3. Generates roadmap using roadmapService.
+4. Creates TopicProgress documents.
+5. Schedules exam countdown notification.
+6. Returns updated user and roadmap summary.
+
+
+8. SYLLABUS ENGINE WORKFLOW
+===========================
+
+Main files:
+- backend/constants/examSyllabus.js
+- backend/services/syllabusEngineService.js
+
+Purpose:
+Automatically map exam names to relevant subjects, chapters, and topics.
+
+Functions:
+- normalizeExamName
+- getExamSyllabus
+- flattenSyllabus
+- priorityWeight
+
+How it works:
+1. User selects exam name.
+2. Backend normalizes it.
+3. Backend fetches syllabus from EXAM_DATABASE.
+4. Syllabus is flattened into topic-level items.
+5. Weak subjects and priorities are used to calculate importance.
+6. Roadmap generation uses these weighted topics.
+
+
+9. ROADMAP GENERATION WORKFLOW
+==============================
+
+Main files:
+- backend/services/roadmapService.js
+- backend/models/Task.js
+- frontend/src/roadmap/RoadmapPage.jsx
+
+Purpose:
+Create topic-wise study tasks from exam syllabus and user preferences.
+
+Input:
+- exam date
+- exam syllabus
+- daily study hours
+- weak subjects
+- subject priorities
+- study timing
+
+Output:
+Task documents with:
+- subject
+- chapter
+- topic
+- subtopic
+- taskType
+- duration
+- plannedDate
+- adjustedDate
+- completed
+- completionDate
+- revisionStage
+- notes
+- priority
+- sourceEngine
+- difficultyLevel
+
+Task types:
+- Study
+- Revision
+- Mock Test
+- Practice
+- Recovery
+- Weak Area Focus
+
+How generation works:
+1. Backend flattens syllabus into topic list.
+2. Weak subjects receive higher priority.
+3. Subject priority ordering affects task order.
+4. Remaining days are calculated from today to exam date.
+5. Daily study hours are split into realistic task blocks.
+6. Tasks are distributed across future days.
+7. Sundays or periodic days can include mock/reflection tasks.
+8. Duplicate tasks are avoided using MongoDB unique indexes and bulk upserts.
+9. TopicProgress records are created for every topic.
+
+Roadmap page frontend:
+1. User opens /roadmap.
+2. Frontend fetches tasks for selected date.
+3. Roadmap displays weekly board.
+4. User can complete tasks from roadmap cards.
+5. Refresh button reloads tasks.
+6. Regenerate button calls backend regeneration endpoint.
+7. Recover Tasks button activates recovery mode.
+
+Regenerate button:
+Frontend calls:
+POST /api/tasks/regenerate
+
+Backend:
+1. Calls generateRoadmapForUser.
+2. Creates missing roadmap tasks.
+3. Avoids duplicate task creation.
+4. Returns success message.
+
+Recover Tasks button:
+Frontend calls:
+POST /api/tasks/recover
+
+Backend:
+1. Activates recovery mode.
+2. Finds incomplete overdue tasks.
+3. Redistributes them gradually into future dates.
+4. Changes task type to Recovery where needed.
+5. Creates supportive recovery notification.
+
+
+10. TASK WORKFLOW
+=================
+
+Main files:
+- backend/models/Task.js
+- backend/controllers/taskController.js
+- backend/routes/taskRoutes.js
+- frontend/src/components/TaskCard.jsx
+
+Task list:
+GET /api/tasks
+
+Task list by date:
+GET /api/tasks?date=YYYY-MM-DD
+
+Today focus:
+GET /api/tasks/today-focus
+
+Complete task:
+PATCH /api/tasks/:id/complete
+
+Skip task:
+PATCH /api/tasks/:id/skip
+
+Reschedule task:
+PATCH /api/tasks/:id/reschedule
+
+When user completes a task:
+1. Frontend sends task completion request.
+2. Backend finds task by ID and user ID.
+3. Backend marks:
+   - completed true
+   - skipped false
+   - completionDate current date
+   - studyMinutesLogged
+   - notes
+   - difficultyLevel
+4. Backend saves task.
+5. Backend calls revisionService.
+6. Revision tasks are generated after 1, 7, and 30 days.
+7. TopicProgress is updated.
+
+When user skips a task:
+1. Backend marks skipped true.
+2. Frontend shows supportive recovery message.
+3. Future recovery can redistribute skipped/overdue work.
+
+When user reschedules:
+1. Frontend sends new date.
+2. Backend updates plannedDate and adjustedDate.
+
+
+11. TODAY'S FOCUS WORKFLOW
+==========================
+
+Main file:
+- frontend/src/dashboard/DashboardPage.jsx
+- backend/services/roadmapService.js
+
+Purpose:
+Reduce overwhelm by showing only the top 3 priority tasks for the day.
+
+Flow:
+1. User opens dashboard.
+2. Frontend calls:
+   GET /api/tasks/today-focus
+3. Backend gets incomplete tasks planned for today.
+4. Backend sorts by priority and duration.
+5. Backend returns only 3 tasks.
+6. Dashboard displays them under Today's Focus.
+
+Dashboard also shows:
+- current streak
+- readiness percentage
+- remaining topic-wise tasks
+- focus timer
+- recovery encouragement
+- XP and level
+
+
+12. FOCUS TIMER WORKFLOW
+========================
+
+Main file:
+- frontend/src/dashboard/FocusTimer.jsx
+
+Purpose:
+Pomodoro-style study timer.
+
+Features:
+- 25 minute session
+- 50 minute session
+- start/pause button
+- reset button
+- countdown display
+
+How it works:
+1. User selects 25 or 50 minutes.
+2. Timer converts minutes to seconds.
+3. When started, setInterval decreases seconds every second.
+4. Pause stops the interval.
+5. Reset restores selected duration.
+
+Current limitation:
+Timer is frontend-only. It does not yet automatically save focus sessions to backend.
+
+
+13. SPACED REPETITION WORKFLOW
+==============================
+
+Main file:
+- backend/services/revisionService.js
+
+Purpose:
+Improve retention by automatically scheduling revision tasks.
+
+When topic task is completed:
+1. scheduleRevisionsForTask is called.
+2. Backend creates revision tasks:
+   - after 1 day
+   - after 7 days
+   - after 30 days
+3. Duplicate revisions are avoided by unique task index.
+4. Revision task uses:
+   - taskType Revision
+   - revisionStage 1, 7, or 30
+   - shorter duration than original task
+   - sourceEngine revisionService
+5. TopicProgress retention score increases.
+
+
+14. ATTENDANCE WORKFLOW
+=======================
+
+Main files:
+- frontend/src/attendance/AttendancePage.jsx
+- backend/models/Attendance.js
+- backend/services/attendanceService.js
+- backend/services/streakService.js
+
+Manual attendance:
+1. User opens Attendance page.
+2. User selects studied hours.
+3. Frontend sends:
+   POST /api/attendance
+4. Backend compares studiedHours with planned daily hours.
+
+Attendance status:
+- Present: studied hours >= 70% of planned hours
+- Grace: studied hours >= 45% of planned hours
+- Needs Attention: below grace threshold
+
+Backend saves:
+- date
+- dateKey
+- studiedHours
+- plannedHours
+- attendanceStatus
+- focusScore
+- source
+
+Automatic attendance:
+1. Cron job runs near end of day.
+2. Backend checks completed tasks for that day.
+3. Completed task minutes are converted to studied hours.
+4. Attendance is automatically marked.
+
+Attendance summary:
+GET /api/attendance/summary
+
+Returns:
+- records
+- attendance percentage
+- weekly consistency score
+
+
+15. STREAK WORKFLOW
+===================
+
+Main file:
+- backend/services/streakService.js
+
+Logic:
+1. Attendance is marked.
+2. streakService checks status.
+3. Present or Grace counts as successful.
+4. Successful day increases streak.
+5. Needs Attention resets streak to 0.
+6. longestStreak is updated if current streak is higher.
+7. recoveryMode becomes true if attendance is not successful.
+8. XP is increased for Present or Grace days.
+
+Important:
+The app uses dateKey to avoid duplicate same-day attendance logic.
+
+
+16. RECOVERY MODE WORKFLOW
+==========================
+
+Main files:
+- backend/services/recoveryService.js
+- backend/services/roadmapService.js
+
+Purpose:
+Help user recover from missed tasks without guilt or overload.
+
+Recovery mode activates when:
+- attendance breaks
+- user manually clicks Recover Tasks
+- cron detects recoveryMode user
+
+How it works:
+1. Backend finds overdue incomplete tasks.
+2. Tasks are not dumped into one day.
+3. Backend calculates a daily recovery cap.
+4. Overdue tasks are distributed over future days.
+5. adjustedDate is updated.
+6. taskType may become Recovery.
+7. Notification is created with supportive message.
+
+Supportive wording:
+Instead of negative wording like "failed" or "behind", the app uses:
+"Let's rebalance your roadmap gradually."
+
+
+17. SUBJECTS AND TOPICS WORKFLOW
+================================
+
+Main files:
+- frontend/src/roadmap/SubjectsPage.jsx
+- backend/routes/progressRoutes.js
+- backend/controllers/progressController.js
+- backend/models/TopicProgress.js
+
+Purpose:
+Show subject/chapter/topic hierarchy and progress.
+
+Flow:
+1. User opens /subjects.
+2. Frontend calls:
+   GET /api/progress
+3. Backend fetches TopicProgress documents.
+4. Backend groups topics by subject and chapter.
+5. Frontend displays:
+   - total subjects
+   - total topics
+   - completed topics
+   - overall progress
+   - subject progress
+   - chapter topics
+   - classification badge
+
+User can mark topic complete:
+1. User clicks topic.
+2. Frontend sends:
+   PATCH /api/progress/:id
+3. Backend updates completed/difficulty/classification fields.
+4. Frontend refreshes progress.
+
+Classifications:
+- Strong
+- Average
+- Weak
+- Critical
+
+
+18. SCHEDULE WORKFLOW
+=====================
+
+Main file:
+- frontend/src/roadmap/SchedulePage.jsx
+
+Purpose:
+Calendar-based daily task view.
+
+Flow:
+1. User opens /schedule.
+2. User selects a date.
+3. Frontend calls:
+   GET /api/tasks?date=YYYY-MM-DD
+4. Backend returns tasks for that date.
+5. Page displays:
+   - selected date
+   - total tasks
+   - completed count
+   - planned study hours
+   - revision count
+   - subject count
+   - task list
+
+User can complete task directly from schedule.
+
+
+19. ANALYTICS WORKFLOW
+======================
+
+Main files:
+- frontend/src/analytics/AnalyticsPage.jsx
+- frontend/src/charts/AnalyticsCharts.jsx
+- backend/services/analyticsService.js
+- backend/controllers/analyticsController.js
+
+Frontend calls:
+GET /api/analytics
+
+Backend calculates:
+- remaining syllabus
+- remaining days
+- required study pace
+- completion rate
+- backlog count
+- recovery status
+- readiness level
+- status
+- weak subjects
+- subject distribution
+- attendance trend
+- revision analytics
+
+Status values:
+- Ahead
+- On Track
+- Recovery Needed
+- Critical
+
+Charts:
+- study hour trends
+- subject distribution
+- completion analytics
+- revision analytics
+
+Chart style:
+- soft sage
+- muted beige
+- dusty lavender
+- no bright neon palette
+
+
+20. SETTINGS WORKFLOW
+=====================
+
+Main files:
+- frontend/src/settings/SettingsPage.jsx
+- backend/controllers/settingsController.js
+- backend/routes/settingsRoutes.js
+
+Settings user can update:
+- preferredTheme
+- dailyStudyHours
+- studyTiming
+- weakSubjects
+- subjectPriorities
+
+Flow:
+1. User changes settings.
+2. Frontend sends PATCH /api/settings.
+3. Backend filters only allowed fields.
+4. Backend updates user document.
+5. Frontend updates auth store and localStorage user.
+
+
+21. NOTIFICATION WORKFLOW
+=========================
+
+Main files:
+- backend/models/Notification.js
+- backend/services/notificationService.js
+- backend/controllers/notificationController.js
+
+Notification types:
+- revision
+- task
+- recovery
+- streak
+- exam
+
+Flow:
+1. Backend creates notifications from services.
+2. User can fetch unread notifications:
+   GET /api/notifications
+3. User can mark notification read:
+   PATCH /api/notifications/:id/read
+
+Current state:
+Backend notification system exists.
+Frontend notification UI can be expanded later.
+
+
+22. CRON JOB WORKFLOW
+=====================
+
+Main file:
+- backend/jobs/scheduler.js
+
+Jobs:
+1. Nightly attendance auto-mark
+   - Runs at 11:15 PM Asia/Kolkata
+   - Marks attendance based on completed tasks
+
+2. Nightly recovery rebalance
+   - Runs at 11:30 PM Asia/Kolkata
+   - Rebalances users in recovery mode
+
+3. Revision scheduling refresh
+   - Runs at 4:10 AM Asia/Kolkata
+   - Ensures completed study tasks have revision tasks
+
+4. Weekly weak area refresh
+   - Runs Monday at 4:45 AM Asia/Kolkata
+   - Updates weak/critical topic classifications
+
+
+23. DATABASE MODELS
+===================
+
+User:
+Stores account, exam profile, streak, theme, onboarding, XP, weak subjects, and priorities.
+
+Task:
+Stores topic-wise roadmap tasks, revisions, mock tests, recovery tasks, completion state, difficulty, notes, dates, and logged minutes.
+
+Attendance:
+Stores daily attendance, studied hours, planned hours, focus score, and status.
+
+TopicProgress:
+Stores per-topic completion, classification, retention score, and revision completion rate.
+
+Notification:
+Stores reminders and supportive messages.
+
+
+24. SECURITY WORKFLOW
+=====================
+
+Authentication:
+- JWT tokens protect private routes.
+- Passwords are hashed with bcrypt.
+
+API protection:
+- Protected routes use auth middleware.
+- User can access only their own data.
+
+Validation:
+- express-validator validates request data.
+
+Security middleware:
+- helmet secures headers.
+- cors restricts frontend origins.
+- express-rate-limit limits repeated requests.
+- express-mongo-sanitize protects against MongoDB operator injection.
+
+Environment variables:
+- Secrets are stored in backend/.env.
+- Secrets should not be committed to GitHub.
+
+
+25. API ROUTES SUMMARY
+======================
+
+Auth:
+- POST /api/auth/register
+- POST /api/auth/login
+- GET /api/auth/me
+
+Onboarding:
+- GET /api/onboarding/syllabus
+- POST /api/onboarding/complete
+
+Tasks:
+- GET /api/tasks
+- GET /api/tasks/today-focus
+- POST /api/tasks/regenerate
+- POST /api/tasks/recover
+- PATCH /api/tasks/:id/complete
+- PATCH /api/tasks/:id/skip
+- PATCH /api/tasks/:id/reschedule
+
+Progress:
+- GET /api/progress
+- PATCH /api/progress/:id
+
+Attendance:
+- POST /api/attendance
+- GET /api/attendance/summary
+
+Analytics:
+- GET /api/analytics
+
+Settings:
+- PATCH /api/settings
+
+Notifications:
+- GET /api/notifications
+- PATCH /api/notifications/:id/read
+
+
+26. FRONTEND ROUTES SUMMARY
+===========================
+
+Public:
+- /auth
+- /onboarding
+
+Protected:
+- /
+- /roadmap
+- /subjects
+- /schedule
+- /analytics
+- /attendance
+- /settings
+
+Route behavior:
+- Not logged in: redirect to /auth
+- Logged in but onboarding incomplete: redirect to /onboarding
+- Logged in and onboarding complete: show main app layout
+
+
+27. COMPLETE USER JOURNEY
+=========================
+
+1. User opens app.
+2. User registers or logs in.
+3. JWT token is saved in localStorage.
+4. User goes through onboarding.
+5. User selects exam and exam date.
+6. Backend automatically fetches syllabus.
+7. User selects daily study hours.
+8. User previews subjects.
+9. User marks weak subjects and priorities.
+10. User selects study timing.
+11. User confirms onboarding.
+12. Backend generates topic-wise roadmap.
+13. Dashboard shows Today's Focus.
+14. User completes study tasks.
+15. Completed tasks generate revision tasks.
+16. Attendance is manually or automatically marked.
+17. Streak increases on successful days.
+18. If user misses study, recovery mode activates.
+19. Recovery mode redistributes backlog gradually.
+20. Analytics show readiness, backlog, weak subjects, attendance, and revision status.
+21. User can inspect subject progress.
+22. User can use schedule calendar.
+23. User can change theme and settings.
+
+
+28. FUTURE AI FEATURE READY AREAS
+=================================
+
+The project is structured for future AI features:
+- AI mentor
+- personalized coaching
+- rank prediction
+- AI-generated schedules
+- voice assistant
+- smart recommendations
+
+Best integration points:
+- roadmapService.js for AI roadmap generation
+- analyticsService.js for AI insights
+- weakAreaService.js for AI weak-area diagnosis
+- notificationService.js for AI reminders
+- recoveryService.js for AI recovery planning
+
+
+29. HOW TO RUN PROJECT
+======================
+
+Install all dependencies:
+npm run install:all
+
+Backend env:
+Create backend/.env with:
+- MONGO_URI
+- JWT_SECRET
+- JWT_EXPIRES_IN
+- PORT
+- CLIENT_URL
+- NODE_ENV
+
+Frontend env:
+Create frontend/.env with:
+- VITE_API_URL
+
+Run both apps:
+npm run dev
+
+Build frontend:
+npm run build
+
+
+30. IMPORTANT NOTES
+===================
+
+1. Do not expose backend/.env publicly.
+2. MongoDB Atlas IP access must allow your current network.
+3. If MONGO_URI is missing, backend will not start.
+4. If frontend cannot call backend, check VITE_API_URL.
+5. If login expires, frontend removes stale token and asks user to login again.
+6. Roadmap generation avoids duplicate tasks using indexes and upsert logic.
+7. Recovery mode is designed to reduce overload and preserve motivation.
+8. The current focus timer is frontend-only and can later be connected to attendance/study session tracking.
+
+
+END OF DOCUMENT
+===============
